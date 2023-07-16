@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+.idea/
+# .vscode/
+
+.coverage
+coverage.json
+
+# Local Database
+database.sqlite
+
+# Pytests
+.pytest_cache/
+
+
+environment.*.sh

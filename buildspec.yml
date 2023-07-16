@@ -1,0 +1,41 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+    commands:
+      - sh /usr/local/bin/dockerd-entrypoint.sh
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - export PROJECT=$(echo $CODEBUILD_BUILD_ID | cut -d ':' -f 1 ) # Returns dev-service or prod-service
+      - export REPOSITORY_URI="${AWS_ACCOUNT_NUMBER}.dkr.ecr.us-east-1.amazonaws.com/$PROJECT"
+      - export COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - export IMAGE_TAG=${COMMIT_HASH:=latest}
+      - export FLASK_ENV="production"
+  build:
+    commands:
+      - echo Checking Repository Images
+      - REPOSITORY_IMAGES=$(aws ecr list-images --repository-name ${PROJECT} --max-items 1)
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest --build-arg ENVIRONMENT=$FLASK_ENV -f development/Dockerfiles/Dockerfile . --target release
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - |
+        if echo "$REPOSITORY_IMAGES" | grep -q "imageDigest"; then
+          echo Repository contain images and Deploy should run
+          echo Writing image definitions file...
+          printf '[{"name":"%s","imageUri":"%s"}]' $PROJECT $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+        else
+          echo Repository did not contain images so this is the first build
+          echo Skipping deploy
+        fi
+artifacts:
+  files: imagedefinitions.json

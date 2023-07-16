@@ -1,0 +1,6 @@
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore python env dir
+venv/
