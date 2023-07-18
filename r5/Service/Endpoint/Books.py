@@ -1,11 +1,9 @@
-import pydantic
-
 from flask import request
 from flask.views import MethodView
 from r5.Framework import Log
 from r5.Service import Response
 
-from r5.Service.Schemas.Books import BookPayload, Book
+from r5.Service.Schemas.Books import BookPayload, Book, BookSource
 from r5.Service.Services.Books import Books as BookService
 
 from r5.Service.Endpoint.Base import get_filters
@@ -19,10 +17,13 @@ class Create(MethodView):
     def get(self):
         """Get all Book / or Limited"""
 
-        filters = get_filters(query_args=request.args, arg_names=("title", "subtitle", "publication_date", "editor", "description", "author", "category"))
+        filters = get_filters(query_args=request.args, arg_names=("title", "subtitle", "published_date", "publisher", "description", "author", "category"))
+
+        page = request.args.get("page")
+        max_per_page = request.args.get("max_per_page")
 
         book_service = BookService()
-        books = book_service.get(filters=filters)
+        books = book_service.list(filters=filters, page=page, max_per_page=max_per_page)
 
         return Response.with_ok(dict(data=books))
 
@@ -33,7 +34,7 @@ class Create(MethodView):
             book_payload = BookPayload(
                 **request.json,
             )
-        except pydantic.ValidationError as err:
+        except ValueError as err:
             return Response.with_conflict(str(err))
         except Exception as err:
             logger.error(f"Error - Input: {str(request.json)} - output: {str(err)}")
@@ -50,12 +51,26 @@ class Create(MethodView):
 class Details(MethodView):
     """Book details by id"""
 
-    def get(self, id):
+    def get(self, book_id):
         """Get Book Detail"""
 
-        return Response.with_ok("")
+        try:
+            books_source = BookSource(request.args.get("source"))
+        except ValueError as err:
+            return Response.with_conflict(str(err))
+        except Exception as err:
+            logger.error(f"Error - Input: {book_id} | {str(request.args)} - output: {str(err)}")
+            return Response.with_err(str(err))
+        
+        book_service = BookService()
+        book = book_service.get(book_id=book_id, source=books_source)
 
-    def delete(self, id):
+        if not book:
+            return Response.with_not_found(f"No resource {book_id} found on source {books_source.value}")
+
+        return Response.with_ok(dict(data=book))
+
+    def delete(self, book_id):
         """Delete Book"""
 
         return Response.with_ok("")

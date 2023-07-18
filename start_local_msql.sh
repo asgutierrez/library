@@ -4,6 +4,9 @@
 export R5_AUTH_JWT_SECRET="abc-123"
 export R5_AUTH_API_SECRET="abc-123"
 
+# Api Keys
+export GOOGLE_API_KEY="abc-123"
+
 # Database
 export R5_DRIVER="mysql+pymysql"
 export R5_DATABASE_HOSTNAME="localhost:3307"

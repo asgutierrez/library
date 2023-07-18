@@ -11,7 +11,7 @@ def add_urls(app):
         "/books", view_func=Books.Create.as_view("books")
     )
     app.add_url_rule(
-        "/books/<id>",
+        "/books/<book_id>",
         view_func=Books.Details.as_view("books_info"),
     )
 

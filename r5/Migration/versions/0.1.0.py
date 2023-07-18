@@ -25,10 +25,12 @@ def upgrade():
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("title", sa.String(length=300), nullable=False),
         sa.Column("subtitle", sa.String(length=300), nullable=True),
-        sa.Column("publication_date", sa.String(length=30), nullable=True),
-        sa.Column("editor", sa.String(length=100), nullable=False),
+        sa.Column("published_date", sa.String(length=30), nullable=True),
+        sa.Column("publisher", sa.String(length=100), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("source", sa.String(length=30), nullable=False),
+        sa.Column("image", sa.Text(), nullable=True),
+        sa.Column("original_source", sa.String(length=30), nullable=False),
+        sa.Column("external_id", sa.String(length=30), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(

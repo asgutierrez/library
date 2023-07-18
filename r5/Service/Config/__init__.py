@@ -23,6 +23,9 @@ class Service:
     # Secret Key
     SECRET = Environment.var_get("R5_SECRET_KEY", Helpers.random_uuid())
 
+    # API KEYS
+    GOOGLE_API_KEY = Environment.var_get("GOOGLE_API_KEY", "")
+
     # Database Variables
     R5_DRIVER = Environment.var_get("R5_DRIVER", "mysql+pymysql")
     R5_DATABASE_HOSTNAME = Environment.var_get("R5_DATABASE_HOSTNAME", False)
