@@ -7,7 +7,7 @@ from sqlalchemy import Column, Integer, String, Text
 from r5.Framework import Log, Types
 from r5.Service.App import db
 from r5.Service.Schemas.Authors import AuthorModel
-from r5.Service.Schemas.Base import Query
+from r5.Service.Schemas.Base import PaginatedResults, Query
 from r5.Service.Schemas.BooksAuthors import BookAuthorModel
 from r5.Service.Schemas.BooksCategories import BookCategoryModel
 from r5.Service.Schemas.Categories import CategoryModel
@@ -34,50 +34,131 @@ class BookModel(Query, db.Model):
     external_id = Column(String(30), nullable=True)
 
     @classmethod
-    def get_all_by_filters(cls, filters: Types.OptionalDict = None) -> list[tuple["BookModel", str, str]]:
+    def get_all_by_filters(
+        cls, page: int, max_per_page: int, filters: Types.OptionalDict = None
+    ) -> PaginatedResults:
         """Get all by filters"""
 
-        filters = filters.copy() #If internal values change, replace copy with deepcopy
+        filters = (
+            filters.copy()
+        )  # If internal values change, replace copy with deepcopy
         if filters is None:
             filters = {}
 
         author = filters.pop(AUTHOR, None)
         category = filters.pop(CATEGORY, None)
 
-        res = db.session.query(cls.id).distinct().filter_by(
-            **filters
-        )
+        conditions = [
+            getattr(cls, column).match(value) for column, value in filters.items()
+        ]
+
+        res = db.session.query(cls.id).distinct().filter(*conditions)
 
         if author:
             res = (
-                res.join(BookAuthorModel, cls.id == BookAuthorModel.book_id, isouter=True)
-                .join(AuthorModel, AuthorModel.id == BookAuthorModel.author_id, isouter=True)
-                .filter(AuthorModel.name == author)
+                res.join(
+                    BookAuthorModel, cls.id == BookAuthorModel.book_id, isouter=True
+                )
+                .join(
+                    AuthorModel,
+                    AuthorModel.id == BookAuthorModel.author_id,
+                    isouter=True,
+                )
+                .filter(AuthorModel.name.match(author))
             )
 
         if category:
             res = (
-                res.join(BookCategoryModel, cls.id == BookCategoryModel.book_id, isouter=True)
-                .join(CategoryModel, CategoryModel.id == BookCategoryModel.category_id, isouter=True)
-                .filter(CategoryModel.name == category)
+                res.join(
+                    BookCategoryModel, cls.id == BookCategoryModel.book_id, isouter=True
+                )
+                .join(
+                    CategoryModel,
+                    CategoryModel.id == BookCategoryModel.category_id,
+                    isouter=True,
+                )
+                .filter(CategoryModel.name.match(category))
             )
 
-        sub_query = res.subquery()
+        offset = (page-1) * max_per_page
+        limit = max_per_page
+        sub_query = res.offset(offset).limit(limit).subquery()
 
-        res = db.session.query(cls, AuthorModel.name, CategoryModel.name)\
-                .join(BookAuthorModel, cls.id == BookAuthorModel.book_id, isouter=True)\
-                .join(AuthorModel, AuthorModel.id == BookAuthorModel.author_id, isouter=True)\
-                .join(BookCategoryModel, cls.id == BookCategoryModel.book_id, isouter=True)\
-                .join(CategoryModel, CategoryModel.id == BookCategoryModel.category_id, isouter=True)\
-                .filter(cls.id.in_(sub_query))
+        res_full = (
+            db.session.query(cls, AuthorModel.name, CategoryModel.name)
+            .join(BookAuthorModel, cls.id == BookAuthorModel.book_id, isouter=True)
+            .join(
+                AuthorModel, AuthorModel.id == BookAuthorModel.author_id, isouter=True
+            )
+            .join(BookCategoryModel, cls.id == BookCategoryModel.book_id, isouter=True)
+            .join(
+                CategoryModel,
+                CategoryModel.id == BookCategoryModel.category_id,
+                isouter=True,
+            )
+            .filter(cls.id.in_(sub_query))
+        )
 
-        return res.all()
+        try:
+            pagination = res.paginate(page=page, per_page=max_per_page)
+            pagination_dict = pagination.__dict__
+            pagination_dict["items"] = res_full.all()
+            paginated_results = PaginatedResults(
+                pages=pagination.pages,
+                **pagination_dict,
+            )
+        except Exception as err:
+            if hasattr(err, "code") and err.code == 404:
+                return PaginatedResults(items=[], page=page, per_page=max_per_page, pages=0, total=0)
+
+            raise err
+
+        return paginated_results
+
+
+    @classmethod
+    def get_by_id(
+        cls, _id: int
+    ) -> tuple["BookModel", typing.Optional[AuthorModel], typing.Optional[CategoryModel]]:
+        """Get by id"""
+
+        res = (
+            db.session.query(cls, AuthorModel.name, CategoryModel.name)
+            .join(BookAuthorModel, cls.id == BookAuthorModel.book_id, isouter=True)
+            .join(
+                AuthorModel, AuthorModel.id == BookAuthorModel.author_id, isouter=True
+            )
+            .join(BookCategoryModel, cls.id == BookCategoryModel.book_id, isouter=True)
+            .join(
+                CategoryModel,
+                CategoryModel.id == BookCategoryModel.category_id,
+                isouter=True,
+            )
+            .filter(cls.id==_id).all()
+        )
+
+        if not res:
+            return None
+
+        return res[0]
+
+
+    @classmethod
+    def delete_by_id(
+        cls, _id: int
+    ) -> None:
+        """Delete by id"""
+
+        model = db.session.query(cls).filter(cls.id==_id).first()
+        model.delete()
+
 
 class BookSource(enum.Enum):
     """Book sources"""
 
     INTERNAL = "INTERNAL"
     GOOGLE = "GOOGLE"
+    OPENLIBRARY = "OPENLIBRARY"
 
 
 class Book(pydantic.BaseModel):
@@ -113,18 +194,9 @@ class Book(pydantic.BaseModel):
 class BookInfo(Book):
     """Book Info Schema"""
 
+    id: Types.OptionalInt = pydantic.Field(alias="id")
     authors: list = pydantic.Field(alias="authors")
     categories: list = pydantic.Field(alias="categories")
-
-    @pydantic.root_validator
-    def validate_min_length(cls, values): # pylint: disable=no-self-argument
-        """Validate min length"""
-
-        authors = values.get("authors")
-        if not authors:
-            raise ValueError("min lenght > 1 for authors")
-
-        return values
 
 
 class BookPayload(pydantic.BaseModel):
@@ -140,7 +212,7 @@ class BookPayload(pydantic.BaseModel):
         use_enum_values = True
 
     @pydantic.root_validator
-    def validate_source_info(cls, values): # pylint: disable=no-self-argument
+    def validate_source_info(cls, values):  # pylint: disable=no-self-argument
         """Validate source info"""
 
         source = BookSource(values.get("source"))
@@ -150,6 +222,24 @@ class BookPayload(pydantic.BaseModel):
 
         else:
             if not values.get("external_id"):
-                raise ValueError(f"external_id parameter required for {source.value} source.")
+                raise ValueError(
+                    f"external_id parameter required for {source.value} source."
+                )
 
         return values
+
+
+class PaginatedBookResults(pydantic.BaseModel):
+    """Model representing the paginated book results."""
+
+    total_items: int = pydantic.Field(alias="total_items")
+    items: list[BookInfo] = pydantic.Field(alias="items")
+    page: int = pydantic.Field(alias="page")
+    pages: int = pydantic.Field(alias="pages")
+    max_per_page: int = pydantic.Field(alias="max_per_page")
+    source: BookSource = pydantic.Field(alias="source")
+
+    class Config:
+        """Configuration"""
+
+        use_enum_values = True

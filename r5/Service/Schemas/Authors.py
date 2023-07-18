@@ -23,6 +23,9 @@ class AuthorModel(Query, db.Model):
         res = cls.filter_by(**dict(name=name))
 
         if obj:
+            if not res:
+                return None
+
             return res[0]
 
         return cls.to_dict(res)

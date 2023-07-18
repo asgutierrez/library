@@ -4,8 +4,10 @@ import typing
 import pydantic
 import requests
 
+from r5.Framework.Apis.Errors import ClientError
 
-class QueryStringError(Exception):
+
+class QueryStringError(ClientError):
     """Exception raised for invalid query string."""
 
 

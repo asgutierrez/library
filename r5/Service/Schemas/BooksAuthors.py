@@ -18,6 +18,19 @@ class BookAuthorModel(Query, db.Model):
     book_id = Column(Integer, ForeignKey('books.id'), nullable=False, primary_key=True)
     author_id = Column(Integer, ForeignKey('authors.id'), nullable=False, primary_key=True)
 
+    @classmethod
+    def get_by_ids(cls, book_id, author_id, obj=False):
+        """Get by ids"""
+        res = cls.filter_by(book_id=book_id, author_id=author_id)
+
+        if obj:
+            if not res:
+                return None
+
+            return res[0]
+
+        return cls.to_dict(res)
+
 
 class BookAuthor(pydantic.BaseModel):
     """BookAuthor Schema"""

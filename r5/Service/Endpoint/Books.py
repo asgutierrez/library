@@ -1,10 +1,11 @@
 from flask import request
 from flask.views import MethodView
+from r5.Framework.Apis.Errors import ClientError
 from r5.Framework import Log
 from r5.Service import Response
 
-from r5.Service.Schemas.Books import BookPayload, Book, BookSource
-from r5.Service.Services.Books import Books as BookService
+from r5.Service.Schemas.Books import BookPayload, BookInfo, BookSource
+from r5.Service.Services.Books import Books as BookService, ResourceNotFoundError
 
 from r5.Service.Endpoint.Base import get_filters
 
@@ -17,13 +18,29 @@ class Create(MethodView):
     def get(self):
         """Get all Book / or Limited"""
 
-        filters = get_filters(query_args=request.args, arg_names=("title", "subtitle", "published_date", "publisher", "description", "author", "category"))
+        filters = get_filters(
+            query_args=request.args,
+            arg_names=(
+                "title",
+                "subtitle",
+                "published_date",
+                "publisher",
+                "description",
+                "author",
+                "category",
+            ),
+        )
 
-        page = request.args.get("page")
-        max_per_page = request.args.get("max_per_page")
+        page = request.args.get("page", type=int)
+        max_per_page = request.args.get("max_per_page", type=int)
 
         book_service = BookService()
-        books = book_service.list(filters=filters, page=page, max_per_page=max_per_page)
+        try:
+            books = book_service.list_(
+                filters=filters, page=page, max_per_page=max_per_page
+            )
+        except ClientError as err:
+            return Response.with_bad_request(str(err))
 
         return Response.with_ok(dict(data=books))
 
@@ -41,11 +58,15 @@ class Create(MethodView):
             return Response.with_err(str(err))
 
         book_service = BookService()
-        book_model = book_service.save(book_payload=book_payload)
+        try:
+            book_info_dict = book_service.save(book_payload=book_payload)
+        except ResourceNotFoundError as err:
+            return Response.with_bad_request(str(err))
+        except Exception as err:
+            logger.error(f"Error - Input: {str(request.json)} - output: {str(err)}")
+            return Response.with_err(str(err))
 
-        book = Book.to_dict(data=book_model)
-
-        return Response.with_created(book)
+        return Response.with_created(book_info_dict)
 
 
 class Details(MethodView):
@@ -59,18 +80,33 @@ class Details(MethodView):
         except ValueError as err:
             return Response.with_conflict(str(err))
         except Exception as err:
-            logger.error(f"Error - Input: {book_id} | {str(request.args)} - output: {str(err)}")
+            logger.error(
+                f"Error - Input: {book_id} | {str(request.args)} - output: {str(err)}"
+            )
             return Response.with_err(str(err))
-        
+
         book_service = BookService()
         book = book_service.get(book_id=book_id, source=books_source)
 
         if not book:
-            return Response.with_not_found(f"No resource {book_id} found on source {books_source.value}")
+            return Response.with_not_found(
+                f"No resource {book_id} found on source {books_source.value}"
+            )
 
         return Response.with_ok(dict(data=book))
 
     def delete(self, book_id):
         """Delete Book"""
 
-        return Response.with_ok("")
+        book_service = BookService()
+        try:
+            book_service.delete(book_id=book_id)
+        except ResourceNotFoundError as _:
+            return Response.with_not_found(f"No resource {book_id} found.")
+        except Exception as err:
+            logger.error(
+                f"Error - Input: {book_id} - output: {str(err)}"
+            )
+            return Response.with_err(str(err))
+
+        return Response.with_ok(f"Resource {book_id} deleted")

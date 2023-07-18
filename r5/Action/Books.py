@@ -3,16 +3,15 @@ import typing
 
 import pydantic
 
-from r5.Framework.Apis import GoogleBooks
+from r5.Framework.Apis import GoogleBooks, OpenLibrary
 from r5.Service.Schemas.Books import BookSource
-
-DEFAULT_MAX_PER_PAGE = 10
 
 
 class Apis(enum.Enum):
     """Api list"""
 
     GOOGLE = "GOOGLE"
+    OPENLIBRARY = "OPENLIBRARY"
 
 
 class BookSearchFilters(pydantic.BaseModel):
@@ -79,11 +78,17 @@ class Books:
         if self.api_name == Apis.GOOGLE:
             self.api = GoogleBooks.GoogleBooksApi(api_key=api_key)
 
+        elif self.api_name == Apis.OPENLIBRARY:
+            self.api = OpenLibrary.OpenLibraryApi(api_key=api_key)
+
+        else:
+            raise ValueError("Invalid API name")
+
     def search(
         self,
         filters: BookSearchFilters,
-        page: typing.Optional[int] = 1,
-        max_per_page: typing.Optional[int] = DEFAULT_MAX_PER_PAGE,
+        page: int,
+        max_per_page: int,
     ) -> typing.Optional[BookSearchResults]:
         """
         Search for books based on the provided filters.
@@ -95,29 +100,53 @@ class Books:
             typing.Optional[BookSearchResults]: The search results or None if no results are found.
         """
 
-        if not page:
-            page = 1
-
-        if not max_per_page:
-            max_per_page = DEFAULT_MAX_PER_PAGE
-
         if self.api_name == Apis.GOOGLE:
             filters = GoogleBooks.BookSearchFilters(**filters.dict())
 
-        if self.api:
-            api_results = self.api.search_books(
-                filters=filters, page=page, max_per_page=max_per_page
+        elif self.api_name == Apis.OPENLIBRARY:
+            filters = OpenLibrary.BookSearchFilters(**filters.dict())
+
+        else:
+            raise ValueError("Invalid API name")
+
+        api_results = self.api.search_books(
+            filters=filters, page=page, max_per_page=max_per_page
+        )
+
+        if self.api_name == Apis.OPENLIBRARY:
+            book_items = []
+            for open_book_item in api_results.items:
+                book_item = BookItem(
+                    id=open_book_item.id,
+                    book_info=BookInfo(**open_book_item.dict()),
+                )
+                book_items.append(book_item)
+
+            book_results = BookSearchResults(
+                source=self.api_name.value,
+                items=book_items,
+                **api_results.dict(exclude={"items"})
             )
+
+        else:
             book_results = BookSearchResults(
                 source=self.api_name.value, **api_results.dict()
             )
-            return book_results
+
+        return book_results
 
     def get(self, book_id: str) -> typing.Optional[BookItem]:
         """Get"""
 
-        if self.api:
-            api_result = self.api.get_book(book_id=book_id)
-            if api_result:
-                book_result = BookItem(**api_result.dict())
-                return book_result
+        api_result = self.api.get_book(book_id=book_id)
+        if api_result:
+            if self.api_name == Apis.OPENLIBRARY:
+                book_item = BookItem(
+                    id=api_result.id,
+                    book_info=BookInfo(**api_result.dict()),
+                )
+
+            else:
+                book_item = BookItem(**api_result.dict())
+
+            return book_item
