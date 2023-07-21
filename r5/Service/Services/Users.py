@@ -46,7 +46,7 @@ class Users:
         if not user_model:
             raise ResourceNotFoundError("User not found")
 
-        if user_model.password != user_auth_payload:
+        if user_model.password != user_auth_payload.password:
             raise InvalidCredentialsError("Invalid credentials")
 
         user_data = UserPayload.to_dict(data=user_model)

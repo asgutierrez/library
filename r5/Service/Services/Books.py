@@ -144,6 +144,10 @@ class Books:
 
         if source == BookSource.INTERNAL:
             book_model_info = BookModel.get_by_id(_id=book_id)
+
+            if not book_model_info:
+                return None
+
             book_info_list = self._book_model_to_dict(
                 compound_book_items=[book_model_info]
             )

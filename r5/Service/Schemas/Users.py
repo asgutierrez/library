@@ -40,7 +40,6 @@ class UserAuthPayload(pydantic.BaseModel):
     """User Auth Payload"""
 
     username: str = pydantic.Field(alias="username")
-    email: str = pydantic.Field(alias="email")
     password: str = pydantic.Field(alias="password")
 
     class Config:
@@ -57,15 +56,6 @@ class UserAuthPayload(pydantic.BaseModel):
         """Return Data from Model"""
         return cls.from_orm(data).dict(exclude={"password"})
 
-    @pydantic.validator("email")
-    def validate_email(cls, value):  # pylint: disable=no-self-argument
-        """Validate email"""
-
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", value):
-            raise ValueError("Invalid email format")
-
-        return value
-
     @pydantic.validator("password")
     def hash_password(cls, value):  # pylint: disable=no-self-argument
         """Hash password"""
@@ -76,6 +66,15 @@ class UserPayload(UserAuthPayload):
     """User Payload"""
 
     email: str = pydantic.Field(alias="email")
+
+    @pydantic.validator("email")
+    def validate_email(cls, value):  # pylint: disable=no-self-argument
+        """Validate email"""
+
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", value):
+            raise ValueError("Invalid email format")
+
+        return value
 
 
 class LoggedUser(pydantic.BaseModel):

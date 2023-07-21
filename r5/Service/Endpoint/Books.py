@@ -4,10 +4,10 @@ from r5.Framework.Apis.Errors import ClientError
 from r5.Framework import Log
 from r5.Service import Response
 
-from r5.Service.Schemas.Books import BookPayload, BookInfo, BookSource
+from r5.Service.Schemas.Books import BookPayload, BookSource
 from r5.Service.Services.Books import Books as BookService, ResourceNotFoundError
 
-from r5.Service.Endpoint.Base import get_filters
+from r5.Service.Endpoint.Base import get_filters, app_resources_auth
 
 logger = Log.get_logger(__name__)
 
@@ -15,6 +15,7 @@ logger = Log.get_logger(__name__)
 class Create(MethodView):
     """Create a new Book Base on Models"""
 
+    @app_resources_auth
     def get(self):
         """Get all Book / or Limited"""
 
@@ -44,6 +45,7 @@ class Create(MethodView):
 
         return Response.with_ok(dict(data=books))
 
+    @app_resources_auth
     def post(self):
         """Create a new Book"""
 
@@ -72,6 +74,7 @@ class Create(MethodView):
 class Details(MethodView):
     """Book details by id"""
 
+    @app_resources_auth
     def get(self, book_id):
         """Get Book Detail"""
 
@@ -95,6 +98,7 @@ class Details(MethodView):
 
         return Response.with_ok(dict(data=book))
 
+    @app_resources_auth
     def delete(self, book_id):
         """Delete Book"""
 
