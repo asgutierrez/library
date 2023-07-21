@@ -21,4 +21,4 @@ FROM build AS release
 COPY . /app
 RUN make project/install
 
-ENTRYPOINT ["r5","start","--inet","0.0.0.0","--port","443","--ssl"]
+ENTRYPOINT ["r5","start","--inet","0.0.0.0","--port","443"]

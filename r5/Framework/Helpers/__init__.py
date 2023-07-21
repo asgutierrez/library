@@ -13,6 +13,11 @@ def time_now():
     return int(time.time())
 
 
+def expire_in(n):
+    """Future Date"""
+    return time_now() + n
+
+
 def expired(n):
     """Expired ?"""
     return time_now() > n
