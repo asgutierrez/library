@@ -60,7 +60,41 @@ make docker/compose
 
 # API de Libros
 ## Version: 1.0.0
-URL_DOMAIN = [https://librarydevpy.azurewebsites.net](https://librarydevpy.azurewebsites.net)
+
+### /auth
+
+#### POST
+##### Summary:
+
+Autenticación de usuario
+
+##### Description:
+
+Permite autenticar al usuario y obtener un token de acceso.
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | Autenticación exitosa. |
+| 401 | Autenticación fallida. Credenciales inválidas. |
+
+### /register
+
+#### POST
+##### Summary:
+
+Registro de usuario
+
+##### Description:
+
+Permite registrar un nuevo usuario en el sistema.
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 201 | Registro exitoso. |
 
 ### /books
 
@@ -77,15 +111,16 @@ Obtiene una lista de libros filtrados por diferentes opciones.
 
 | Name | Located in | Description | Required | Schema |
 | ---- | ---------- | ----------- | -------- | ---- |
-| title | query | Título del libro. | No | string |
-| subtitle | query | Subtítulo del libro. | No | string |
-| published_date | query | Fecha de publicación del libro. | No | date |
-| publisher | query | Editorial del libro. | No | string |
-| description | query | Descripción del libro. | No | string |
-| author | query | Autor del libro. | No | string |
-| category | query | Categoría del libro. | No | string |
-| page | query | Número de página (para paginación). | No | integer |
-| max_per_page | query | Número máximo de resultados por página (para paginación). | No | integer |
+| title | query | Título del libro (opcional). | No | string |
+| subtitle | query | Subtítulo del libro (opcional). | No | string |
+| published_date | query | Fecha de publicación del libro (opcional). | No | date |
+| publisher | query | Editorial del libro (opcional). | No | string |
+| description | query | Descripción del libro (opcional). | No | string |
+| author | query | Autor del libro (opcional). | No | string |
+| category | query | Categoría del libro (opcional). | No | string |
+| page | query | Número de página para paginación (opcional). | No | integer |
+| max_per_page | query | Número máximo de resultados por página para paginación (opcional). | No | integer |
+| source | query | Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY) (opcional). | No | [BookSource](#BookSource) |
 
 ##### Responses
 
@@ -124,8 +159,8 @@ Obtiene la información de un libro específico según su ID y la fuente proporc
 
 | Name | Located in | Description | Required | Schema |
 | ---- | ---------- | ----------- | -------- | ---- |
-| book_id | path | ID del libro a obtener. | No | integer |
-| source | query | Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY). | No | string |
+| book_id | path | ID del libro. | Yes | long |
+| source | query | Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY) (opcional). | No | [BookSource](#BookSource) |
 
 ##### Responses
 
@@ -147,7 +182,7 @@ Elimina el libro especificado por su ID.
 
 | Name | Located in | Description | Required | Schema |
 | ---- | ---------- | ----------- | -------- | ---- |
-| book_id | path | ID del libro a eliminar. | No | integer |
+| book_id | path | ID del libro. | Yes | long |
 
 ##### Responses
 
