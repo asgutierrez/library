@@ -1,0 +1,330 @@
+name: Swagger UI Action
+uses: Legion2/swagger-ui-action@v1.1.6
+
+openapi: 3.0.0
+info:
+  title: API de Libros
+  version: 1.0.0
+
+paths:
+  /auth:
+    post:
+      summary: Autenticación de usuario
+      description: Permite autenticar al usuario y obtener un token de acceso.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthPayload'
+      responses:
+        '200':
+          description: Autenticación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Autenticación fallida. Credenciales inválidas.
+
+  /register:
+    post:
+      summary: Registro de usuario
+      description: Permite registrar un nuevo usuario en el sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPayload'
+      responses:
+        '201':
+          description: Registro exitoso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+
+  /books:
+    get:
+      summary: Obtener libros
+      description: Obtiene una lista de libros filtrados por diferentes opciones.
+      parameters:
+        - name: title
+          in: query
+          description: Título del libro (opcional).
+          schema:
+            type: string
+        - name: subtitle
+          in: query
+          description: Subtítulo del libro (opcional).
+          schema:
+            type: string
+        - name: published_date
+          in: query
+          description: Fecha de publicación del libro (opcional).
+          schema:
+            type: string
+            format: date
+        - name: publisher
+          in: query
+          description: Editorial del libro (opcional).
+          schema:
+            type: string
+        - name: description
+          in: query
+          description: Descripción del libro (opcional).
+          schema:
+            type: string
+        - name: author
+          in: query
+          description: Autor del libro (opcional).
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Categoría del libro (opcional).
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Número de página para paginación (opcional).
+          schema:
+            type: integer
+            minimum: 1
+        - name: max_per_page
+          in: query
+          description: Número máximo de resultados por página para paginación (opcional).
+          schema:
+            type: integer
+            minimum: 1
+        - name: source
+          in: query
+          description: Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY) (opcional).
+          schema:
+            $ref: '#/components/schemas/BookSource'
+      responses:
+        '200':
+          description: Lista de libros encontrados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBookResultsWrapper'
+  
+    post:
+      summary: Agregar un nuevo libro
+      description: Agrega un nuevo libro utilizando la información proporcionada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookPayload'
+      responses:
+        '201':
+          description: Libro agregado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInfo'
+        '400':
+          description: Solicitud inválida. Puede faltar información o ser incorrecta.
+
+  /books/{book_id}:
+    get:
+      summary: Obtener información de un libro por ID
+      description: Obtiene la información de un libro específico según su ID y la fuente proporcionada.
+      parameters:
+        - name: book_id
+          in: path
+          description: ID del libro.
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: source
+          in: query
+          description: Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY) (opcional).
+          schema:
+            $ref: '#/components/schemas/BookSource'
+      responses:
+        '200':
+          description: Información del libro encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookInfoWrapper'
+        '404':
+          description: Libro no encontrado.
+
+    delete:
+      summary: Eliminar un libro por ID
+      description: Elimina el libro especificado por su ID.
+      parameters:
+        - name: book_id
+          in: path
+          description: ID del libro.
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Libro eliminado exitosamente.
+        '404':
+          description: Libro no encontrado.
+
+components:
+  schemas:
+    BookSource:
+      type: string
+      enum:
+        - INTERNAL
+        - GOOGLE
+        - OPENLIBRARY
+
+    Book:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Título del libro.
+        subtitle:
+          type: string
+          description: Subtítulo del libro (opcional).
+        published_date:
+          type: string
+          format: date
+          description: Fecha de publicación del libro (opcional).
+        publisher:
+          type: string
+          description: Editorial del libro (opcional).
+        description:
+          type: string
+          description: Descripción del libro (opcional).
+        author:
+          type: string
+          description: Autor del libro (opcional).
+        category:
+          type: string
+          description: Categoría del libro (opcional).
+
+    BookInfo:
+      allOf:
+        - $ref: '#/components/schemas/Book'
+        - type: object
+          properties:
+            id:
+              type: integer
+              description: ID del libro.
+            authors:
+              type: array
+              items:
+                type: string
+              description: Lista de autores del libro.
+            categories:
+              type: array
+              items:
+                type: string
+              description: Lista de categorías del libro.
+
+    BookPayload:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/BookSource'
+          description: Fuente para obtener la información (INTERNAL, GOOGLE u OPENLIBRARY).
+        external_id:
+          type: string
+          description: ID externo del libro (requerido para GOOGLE u OPENLIBRARY).
+        book_info:
+          $ref: '#/components/schemas/BookInfo'
+          description: Información del libro (requerido para INTERNAL).
+      required:
+        - source
+
+    PaginatedBookResults:
+      type: object
+      properties:
+        total_items:
+          type: integer
+          description: Número total de libros encontrados.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookInfo'
+          description: Lista de libros.
+        page:
+          type: integer
+          description: Número de página actual (para paginación).
+        pages:
+          type: integer
+          description: Número total de páginas (para paginación).
+        max_per_page:
+          type: integer
+          description: Número máximo de resultados por página (para paginación).
+        source:
+          $ref: '#/components/schemas/BookSource'
+          description: Fuente utilizada para obtener los resultados.
+
+    PaginatedBookResultsWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PaginatedBookResults'
+          description: Objeto que contiene los resultados paginados de libros.
+
+    AuthPayload:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Nombre de usuario del usuario.
+        password:
+          type: string
+          description: Contraseña del usuario.
+      required:
+        - username
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token de acceso generado para el usuario.
+
+    RegisterPayload:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Nombre de usuario del nuevo usuario.
+        email:
+          type: string
+          format: email
+          description: Correo electrónico del nuevo usuario.
+        password:
+          type: string
+          description: Contraseña del nuevo usuario.
+      required:
+        - username
+        - email
+        - password
+
+    RegisterResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Nombre de usuario del nuevo usuario registrado.
+        email:
+          type: string
+          format: email
+          description: Correo electrónico del nuevo usuario registrado.
+
+securitySchemes:
+  x-token:
+    type: apiKey
+    in: header
+    name: x-token
